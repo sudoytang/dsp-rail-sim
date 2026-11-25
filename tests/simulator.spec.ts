@@ -1,0 +1,157 @@
+import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+
+test("renders WebGL and calculates multiple EM-Rail Ejectors in a worker", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "EM-Rail Ejector Simulator" })).toBeVisible();
+  await expect(page.locator("canvas")).toBeVisible();
+  await expect(page.locator(".live-status strong")).toHaveText(/^(READY TO LAUNCH|LAUNCH BLOCKED)$/);
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("button", { name: "Add Ejector to Terran I" }).click();
+  await page.getByRole("dialog").getByLabel("Name").fill("EM-Rail Ejector 2");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.getByLabel("Auto Orbit").check();
+  await page.locator(".orbit-matrix .orbit-slot").nth(1).click();
+  await page.getByRole("button", { name: "Apply target to all Ejectors on Terran I" }).click();
+  await page.getByRole("button", { name: "EM-Rail Ejector 1 EJECTOR" }).click();
+  await expect(page.getByLabel("Auto Orbit")).toBeChecked();
+  await expect(page.locator(".orbit-slot.selected")).toHaveText("2");
+  await page.getByRole("tab", { name: "CALC", exact: true }).click();
+  await page.getByRole("button", { name: "Add calculation", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Add calculation" });
+  await expect(dialog.locator(".calc-entry")).toHaveCount(2);
+  await expect(dialog.locator(".calc-entry").nth(1)).toContainText("Orbit 2 · Auto");
+  await dialog.getByLabel("Calculation name").fill("Two ejector run");
+  await dialog.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.locator(".calc-run")).toHaveCount(1);
+  await expect(page.locator(".calc-run.status-completed")).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator(".run-summary")).toContainText("%");
+  await page.locator(".calc-run-toggle").click();
+  await expect(page.getByText("AGGREGATE MACHINE AVAILABILITY")).toBeVisible();
+  await expect(page.locator(".ratio-card strong")).toContainText("%");
+  await expect(page.locator(".individual-result")).toHaveCount(2);
+  await expect(page.getByText("System coverage", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Arithmetic mean/)).toHaveCount(0);
+  await page.screenshot({ path: "test-results/simulator.png", fullPage: true });
+  await page.locator(".run-detail-actions").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Delete calculation" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(errors).toEqual([]);
+});
+
+test("resizes the object panel by dragging", async ({ page }) => {
+  await page.goto("/");
+  const panel = page.locator(".hierarchy-panel");
+  const resizer = page.locator(".sidebar-resizer");
+  const before = await panel.evaluate((element) => element.getBoundingClientRect().width);
+  const box = await resizer.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + 200);
+  await page.mouse.down();
+  await page.mouse.move(box!.x + box!.width / 2 + 80, box!.y + 200);
+  await page.mouse.up();
+  const after = await panel.evaluate((element) => element.getBoundingClientRect().width);
+  expect(after).toBeGreaterThan(before + 60);
+  await page.reload();
+  const restored = await page.locator(".hierarchy-panel").evaluate((element) => element.getBoundingClientRect().width);
+  expect(Math.abs(restored - after)).toBeLessThan(2);
+});
+
+test("selects an object from anywhere in its row", async ({ page }) => {
+  await page.goto("/");
+  const row = page.locator(".tree-row").filter({ hasText: "Giant II" });
+  const box = await row.boundingBox();
+  expect(box).not.toBeNull();
+  await page.mouse.click(box!.x + box!.width - 4, box!.y + box!.height / 2);
+  await expect(page.getByLabel("Fixed radius")).toHaveValue("800");
+});
+
+test("adapts availability scope to the selected object", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("button", { name: "Add Ejector to Satellite II-a" }).click();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.getByRole("button", { name: "Alpha STAR", exact: true }).click();
+  await expect(page.locator(".live-status strong")).toHaveText(/\d+ \/ 2 EJECTORS AVAILABLE/);
+  await page.getByRole("button", { name: "Giant II GIANT", exact: true }).click();
+  await expect(page.locator(".live-status strong")).toHaveText(/\d+ \/ 1 EJECTORS AVAILABLE/);
+  await expect(page.locator(".live-status small")).toContainText("Giant II satellites");
+  await page.getByRole("button", { name: "Satellite II-a SATELLITE", exact: true }).click();
+  await expect(page.locator(".live-status strong")).toHaveText(/\d+ \/ 1 EJECTORS AVAILABLE/);
+  await page.getByRole("button", { name: "EM-Rail Ejector 1 EJECTOR", exact: true }).click();
+  await expect(page.locator(".live-status strong")).toHaveText(/^(READY TO LAUNCH|LAUNCH BLOCKED)$/);
+});
+
+test("uses the Dyson Swarm orbit matrix and confirms deletion", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator(".cloud-tile")).toHaveCount(20);
+  await expect(page.locator(".cloud-tile:not([disabled])")).toHaveCount(2);
+  await page.getByRole("button", { name: "Select Dyson Swarm II, orbit 2", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Dyson Swarm II" })).toBeVisible();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await expect(page.locator(".cloud-orbit-heading small")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "New", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Delete Dyson Swarm I", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Delete object" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.locator(".cloud-tile:not([disabled])")).toHaveCount(2);
+  await page.getByRole("button", { name: "Delete Dyson Swarm I", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.locator(".cloud-tile:not([disabled])")).toHaveCount(1);
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  const newCloud = page.getByRole("dialog", { name: "Add Dyson Swarm Orbit" });
+  await expect(newCloud.getByLabel("Object type")).toHaveCount(0);
+  await newCloud.getByLabel("Name").fill("Replacement Swarm");
+  await newCloud.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(page.locator(".cloud-tile:not([disabled])")).toHaveCount(2);
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await expect(page.locator(".cloud-orbit-heading small")).toHaveText("2 / 20");
+});
+
+test("edits objects through parameter dialogs and confirms deletion", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.getByRole("button", { name: "Add object to Alpha" }).click();
+  await page.getByLabel("Object type").selectOption("giant");
+  await page.getByRole("dialog").getByLabel("Name").fill("Test Giant");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(page.getByLabel("Fixed radius")).toHaveValue("800");
+  await expect(page.getByLabel("Orbital period")).toBeVisible();
+  await expect(page.getByLabel("Rotation period")).toBeVisible();
+  await page.getByRole("button", { name: "Rename Test Giant" }).click();
+  await page.getByLabel("Object name").fill("Renamed Giant");
+  await page.getByLabel("Object name").press("Enter");
+  await expect(page.getByRole("heading", { name: "Renamed Giant" })).toBeVisible();
+  await page.getByRole("button", { name: "Add satellite to Renamed Giant" }).click();
+  await expect(page.getByRole("dialog", { name: "Add satellite to Renamed Giant" })).toBeVisible();
+  await page.getByRole("dialog").getByLabel("Name").fill("Test Satellite");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect(page.getByLabel("Fixed radius")).toHaveValue("200");
+  await expect(page.locator(".moon-row")).toHaveCount(2);
+  await page.getByRole("button", { name: "Delete Test Satellite", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Delete object" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.locator(".moon-row")).toHaveCount(1);
+  await page.getByRole("button", { name: "EM-Rail Ejector 1 EJECTOR" }).click();
+  await page.getByLabel("Latitude").fill("45");
+  await expect(page.getByLabel("Latitude")).toHaveValue("45");
+});
+
+test("exports AU distances and imports the configuration", async ({ page }) => {
+  await page.goto("/");
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  const download = await downloadPromise;
+  const source = await readFile((await download.path())!, "utf8");
+  const exported = JSON.parse(source) as { distanceUnit: string; bodies: Array<{ orbit: { radius: number } }> };
+  expect(exported.distanceUnit).toBe("AU");
+  expect(exported.bodies[0].orbit.radius).toBe(1);
+  await page.getByRole("button", { name: "Alpha STAR" }).click();
+  await page.getByLabel("Radius coefficient").fill("1.8");
+  await page.locator('input[type="file"]').setInputFiles({ name: "system.json", mimeType: "application/json", buffer: Buffer.from(source) });
+  await page.getByRole("button", { name: "Alpha STAR" }).click();
+  await expect(page.getByLabel("Radius coefficient")).toHaveValue("1");
+});

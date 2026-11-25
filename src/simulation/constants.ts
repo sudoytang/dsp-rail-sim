@@ -1,0 +1,11 @@
+export const METERS_PER_AU = 40_000;
+export const AU_PER_LIGHT_YEAR = 60;
+export const METERS_PER_LIGHT_YEAR = METERS_PER_AU * AU_PER_LIGHT_YEAR;
+export const STAR_STANDARD_RADIUS_M = 1_600;
+export const ROCKY_RADIUS_M = 200;
+export const GIANT_RADIUS_M = 800;
+export const MIN_ELEVATION_DEG = 5;
+export const MAX_ELEVATION_DEG = 60;
+export const MAX_CLOUD_ORBITS = 20;
+export const SEARCH_TICK_SECONDS = 0.5;
+export const TAU = Math.PI * 2;

@@ -6,6 +6,10 @@ export interface AvailabilityScope {
   label: string;
 }
 
+export function highlightedLauncherId(selection: Selection): string | null {
+  return selection.type === "launcher" ? selection.id : null;
+}
+
 export function availabilityScope(
   config: SimulationConfig,
   selection: Selection,

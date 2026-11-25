@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { activitySegments } from "../activity";
 import { formatDuration, formatPercent } from "../format";
 import type { CalcJob, CalcReport } from "../simulation/types";
 import type { WorkerResponse } from "../simulation/workerMessages";
@@ -141,12 +142,18 @@ export function CalcPanel() {
 
 function CalcResults({ job, report }: { job: CalcJob; report: CalcReport }) {
   const config = useAppStore((state) => state.config);
-  const duration = report.endSeconds - report.startSeconds;
+  const segments = activitySegments(report);
+  const chart = activityChartPaths(segments, report.startSeconds, report.endSeconds);
   return (
     <div className="report calc-report">
       <div className="ratio-card"><span>AGGREGATE MACHINE AVAILABILITY</span><strong>{formatPercent(report.aggregateRatio)}</strong></div>
       <div className="coverage-card"><span>System coverage</span><strong>{formatPercent(report.systemCoverageRatio)}</strong><small>At least one selected Ejector can launch</small></div>
-      <div className="window-timeline" aria-label="System coverage timeline">{report.coverageWindows.map((window, index) => <span key={index} className="window-segment" style={{ left: `${((window.startSeconds - report.startSeconds) / duration) * 100}%`, width: `${Math.max(((window.endSeconds - window.startSeconds) / duration) * 100, 0.25)}%` }} />)}</div>
+      <div className="activity-chart-heading"><span>Working Ejectors</span><small>0–{report.launchers.length}</small></div>
+      <div className="activity-chart">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Working Ejector ratio over time">
+          <path className="activity-area" d={chart.area} />
+        </svg>
+      </div>
       <div className="timeline-labels"><span>{formatDuration(report.startSeconds)}</span><span>{formatDuration(report.endSeconds)}</span></div>
       <div className="calc-results-heading">Individual availability</div>
       <div className="individual-results">{report.launchers.map((result) => {
@@ -162,4 +169,17 @@ function CalcResults({ job, report }: { job: CalcJob; report: CalcReport }) {
       <p className="field-note">{job.name} · Numerical result · {report.tickSeconds}s simulation tick</p>
     </div>
   );
+}
+
+function activityChartPaths(segments: ReturnType<typeof activitySegments>, startSeconds: number, endSeconds: number): { area: string } {
+  const duration = endSeconds - startSeconds;
+  let area = "M 0 100";
+  segments.forEach((segment) => {
+    const xStart = ((segment.startSeconds - startSeconds) / duration) * 100;
+    const xEnd = ((segment.endSeconds - startSeconds) / duration) * 100;
+    const y = 100 - segment.activeRatio * 100;
+    area += ` L ${xStart} ${y} L ${xEnd} ${y}`;
+  });
+  area += " L 100 100 Z";
+  return { area };
 }

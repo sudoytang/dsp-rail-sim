@@ -34,6 +34,8 @@ test("renders WebGL and calculates multiple EM-Rail Ejectors in a worker", async
   await expect(page.locator(".ratio-card strong")).toContainText("%");
   await expect(page.locator(".individual-result")).toHaveCount(2);
   await expect(page.getByText("System coverage", { exact: true })).toBeVisible();
+  await expect(page.locator(".activity-chart")).toBeVisible();
+  await expect(page.locator(".activity-chart .activity-area")).toHaveCount(1);
   await expect(page.getByText(/Arithmetic mean/)).toHaveCount(0);
   await page.screenshot({ path: "test-results/simulator.png", fullPage: true });
   await page.locator(".run-detail-actions").getByRole("button", { name: "Delete", exact: true }).click();
@@ -58,6 +60,27 @@ test("resizes the object panel by dragging", async ({ page }) => {
   await page.reload();
   const restored = await page.locator(".hierarchy-panel").evaluate((element) => element.getBoundingClientRect().width);
   expect(Math.abs(restored - after)).toBeLessThan(2);
+});
+
+test("collapses and expands the Ejector group under a body", async ({ page }) => {
+  await page.goto("/");
+  const toggle = page.getByRole("button", { name: "Collapse Ejectors on Terran I" });
+  await expect(toggle).toBeVisible();
+  await expect(page.getByRole("button", { name: "EM-Rail Ejector 1 EJECTOR", exact: true })).toBeVisible();
+  await toggle.click();
+  await expect(page.getByRole("button", { name: "Expand Ejectors on Terran I" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "EM-Rail Ejector 1 EJECTOR", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Expand Ejectors on Terran I" }).click();
+  await expect(page.getByRole("button", { name: "EM-Rail Ejector 1 EJECTOR", exact: true })).toBeVisible();
+});
+
+test("returns to the setup tab when selecting a left-panel object", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "CALC", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "CALC", exact: true })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("button", { name: "Giant II GIANT", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "SETUP", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { name: "Giant II" })).toBeVisible();
 });
 
 test("selects an object from anywhere in its row", async ({ page }) => {

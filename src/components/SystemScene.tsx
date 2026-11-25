@@ -8,6 +8,7 @@ import { launcherState, orbitDirection, orbitalBasis, systemState } from "../sim
 import { LaunchSimulation } from "../simulation/launchSimulation";
 import type { BodyParameters, SimulationConfig, SystemState, VisibilityState } from "../simulation/types";
 import { displayBodyRadius, displayCloudPoint, displayMoonOrbitRadius, displayOrbitRadius, displayStarRadius, toThree } from "../rendering/sceneScale";
+import { highlightedLauncherId } from "../selection";
 import { useAppStore } from "../state/store";
 import type { Selection } from "../state/store";
 
@@ -334,8 +335,7 @@ function updateWorld(world: WorldObjects, config: SimulationConfig, system: Syst
     }
   }
 
-  const selection = useAppStore.getState().selection;
-  const selectedId = selection.type === "launcher" ? selection.id : config.launchers[0]?.id;
+  const selectedId = highlightedLauncherId(useAppStore.getState().selection);
   const selectedVisibility = selectedId ? visibilities?.[selectedId] ?? null : null;
   if (selectedVisibility !== world.lastColorVisibility || selectedId !== world.lastColorLauncherId) {
     world.lastColorVisibility = selectedVisibility;

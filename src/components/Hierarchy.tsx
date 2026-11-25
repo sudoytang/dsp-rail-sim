@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import type { BodyParameters } from "../simulation/types";
+import type { BodyParameters, LauncherParameters } from "../simulation/types";
 import { useAppStore } from "../state/store";
 import type { Selection } from "../state/store";
 import { AddCelestialIcon, LauncherIcon, TrashIcon } from "./icons";
@@ -25,9 +25,20 @@ export function Hierarchy({ onImport, onExport }: { onImport: () => void; onExpo
   const cloudsBySlot = new Map(config.clouds.map((cloud) => [cloud.slot, cloud]));
   const selected = (candidate: Selection) => selection.type === candidate.type && selection.id === candidate.id;
 
-  const launcherRows = (bodyId: string) => config.launchers.filter((launcher) => launcher.bodyId === bodyId).map((launcher) => (
-    <ObjectRow key={launcher.id} className="launcher-row" selected={selected({ type: "launcher", id: launcher.id })} onSelect={() => setSelection({ type: "launcher", id: launcher.id })} icon={<span className="object-icon launcher-object-icon"><LauncherIcon /></span>} name={launcher.name} type="EJECTOR" actions={editing && <IconAction label={`Delete ${launcher.name}`} danger onClick={() => setDeleting({ selection: { type: "launcher", id: launcher.id }, name: launcher.name })}><TrashIcon /></IconAction>} />
-  ));
+  const launcherGroup = (body: BodyParameters) => {
+    const launchers = config.launchers.filter((launcher) => launcher.bodyId === body.id);
+    if (launchers.length === 0) return null;
+    return (
+      <LauncherGroup
+        bodyName={body.name}
+        launchers={launchers}
+        selectedLauncherId={selection.type === "launcher" ? selection.id : null}
+        editing={editing}
+        onSelect={(launcher) => setSelection({ type: "launcher", id: launcher.id })}
+        onDelete={(launcher) => setDeleting({ selection: { type: "launcher", id: launcher.id }, name: launcher.name })}
+      />
+    );
+  };
 
   const bodyActions = (body: BodyParameters) => (
     <>
@@ -52,10 +63,10 @@ export function Hierarchy({ onImport, onExport }: { onImport: () => void; onExpo
               {config.bodies.filter((moon) => moon.parentId === body.id).map((moon) => (
                 <div key={moon.id}>
                   <ObjectRow className="moon-row" selected={selected({ type: "body", id: moon.id })} onSelect={() => setSelection({ type: "body", id: moon.id })} icon={<span className="object-icon rocky-icon" />} name={moon.name} type="SATELLITE" actions={editing && bodyActions(moon)} />
-                  {launcherRows(moon.id)}
+                  {launcherGroup(moon)}
                 </div>
               ))}
-              {launcherRows(body.id)}
+              {launcherGroup(body)}
             </div>
           ))}
         </div>
@@ -78,11 +89,46 @@ export function Hierarchy({ onImport, onExport }: { onImport: () => void; onExpo
         </div>
       </div>
       <div className="hierarchy-actions editor-actions"><button className="button secondary" onClick={onImport}>Import</button><button className={`button secondary edit-toggle ${editing ? "active" : ""}`} onClick={() => setEditing(!editing)}>{editing ? "Done" : "Edit"}</button><button className="button secondary" onClick={onExport}>Export</button></div>
-      <div className="legend"><span><i className="legend-line available" />Firing orbit</span><span><i className="legend-line inactive" />Inactive</span></div>
       {addDialog && <AddObjectDialog parent={addDialog.parent} initialKind={addDialog.initialKind} onClose={() => setAddDialog(null)} />}
       {launcherParent && <AddLauncherDialog body={launcherParent} onClose={() => setLauncherParent(null)} />}
       {deleting && <ConfirmDeleteDialog name={deleting.name} detail={deleting.detail} onCancel={() => setDeleting(null)} onConfirm={() => { setSelection(deleting.selection); deleteSelected(); setDeleting(null); }} />}
     </aside>
+  );
+}
+
+function LauncherGroup({ bodyName, launchers, selectedLauncherId, editing, onSelect, onDelete }: {
+  bodyName: string;
+  launchers: LauncherParameters[];
+  selectedLauncherId: string | null;
+  editing: boolean;
+  onSelect: (launcher: LauncherParameters) => void;
+  onDelete: (launcher: LauncherParameters) => void;
+}) {
+  const [open, setOpen] = useState(launchers.length <= 5);
+  const previousSelection = useRef(selectedLauncherId);
+  const containsSelection = launchers.some((launcher) => launcher.id === selectedLauncherId);
+
+  useEffect(() => {
+    if (selectedLauncherId && selectedLauncherId !== previousSelection.current && launchers.some((launcher) => launcher.id === selectedLauncherId)) {
+      setOpen(true);
+    }
+    previousSelection.current = selectedLauncherId;
+  }, [selectedLauncherId]);
+
+  return (
+    <>
+      <div className={`ejector-group-row ${containsSelection ? "contains-selection" : ""}`}>
+        <button className="ejector-group-toggle" aria-expanded={open} aria-label={`${open ? "Collapse" : "Expand"} Ejectors on ${bodyName}`} onClick={() => setOpen(!open)}>
+          <span className={`group-chevron ${open ? "open" : ""}`} />
+          <span className="object-icon launcher-object-icon"><LauncherIcon /></span>
+          <span className="group-label">Ejectors</span>
+          <small>{launchers.length}</small>
+        </button>
+      </div>
+      {open && launchers.map((launcher) => (
+        <ObjectRow key={launcher.id} className="launcher-row grouped-launcher-row" selected={launcher.id === selectedLauncherId} onSelect={() => onSelect(launcher)} icon={<span className="object-icon launcher-object-icon"><LauncherIcon /></span>} name={launcher.name} type="EJECTOR" actions={editing && <IconAction label={`Delete ${launcher.name}`} danger onClick={() => onDelete(launcher)}><TrashIcon /></IconAction>} />
+      ))}
+    </>
   );
 }
 

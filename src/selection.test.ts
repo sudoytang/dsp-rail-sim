@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availabilityScope } from "./selection";
+import { availabilityScope, highlightedLauncherId } from "./selection";
 import { createDefaultConfig } from "./simulation/config";
 import type { VisibilityState } from "./simulation/types";
 
@@ -20,6 +20,15 @@ function visibilityAtOrbit(currentOrbitSlot: number): VisibilityState {
     },
   };
 }
+
+describe("3D firing highlight", () => {
+  it("highlights only an explicitly selected EM-Rail Ejector", () => {
+    expect(highlightedLauncherId({ type: "launcher", id: "launcher-1" })).toBe("launcher-1");
+    expect(highlightedLauncherId({ type: "star", id: "star" })).toBeNull();
+    expect(highlightedLauncherId({ type: "body", id: "planet-1" })).toBeNull();
+    expect(highlightedLauncherId({ type: "cloud", id: "cloud-1" })).toBeNull();
+  });
+});
 
 describe("availability scopes", () => {
   it("assigns an automatic ejector only to its current orbit", () => {

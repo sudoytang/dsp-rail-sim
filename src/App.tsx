@@ -98,7 +98,6 @@ export default function App() {
         <section className="center-panel"><SystemScene /><TimeControls /></section>
         <RightPanel />
       </main>
-      <footer className="app-footer"><span>SPHERICAL BODIES · CIRCULAR ORBITS · INSTANTANEOUS GEOMETRY</span><span>Simulation units: m / s</span></footer>
       {resetOpen && <ConfirmDialog title="Reset star system" eyebrow="SYSTEM" message="Reset the current star system to its default configuration?" detail="Saved calculations will be kept but marked outdated." confirmLabel="Reset" onCancel={() => setResetOpen(false)} onConfirm={() => { replaceConfig(createDefaultConfig()); setResetOpen(false); }} />}
     </div>
   );

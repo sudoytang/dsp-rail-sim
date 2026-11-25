@@ -55,6 +55,7 @@ interface AppState {
 
 const initialConfig = loadInitialConfig();
 const initialCalcJobs = loadCalcJobs();
+const initialCalcReports = loadCalcReports(initialCalcJobs);
 
 export const useAppStore = create<AppState>((set, get) => ({
   config: initialConfig,
@@ -64,8 +65,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   playbackSpeed: 30,
   visibilities: {},
   calcJobs: initialCalcJobs,
-  calcRuns: Object.fromEntries(initialCalcJobs.map((job) => [job.id, { status: "outdated" as const, progress: 0 }])),
-  reports: {},
+  calcRuns: Object.fromEntries(initialCalcJobs.map((job) => [
+    job.id,
+    initialCalcReports[job.id] ? { status: "completed" as const, progress: 1 } : { status: "outdated" as const, progress: 0 },
+  ])),
+  reports: initialCalcReports,
   error: null,
   setSelection: (selection) => set({ selection }),
   setCurrentTime: (currentTimeSeconds) => set({ currentTimeSeconds }),
@@ -183,5 +187,16 @@ function loadCalcJobs(): CalcJob[] {
     return Array.isArray(jobs) ? jobs : [];
   } catch {
     return [];
+  }
+}
+
+function loadCalcReports(jobs: CalcJob[]): Record<string, CalcReport> {
+  try {
+    const stored = localStorage.getItem("dsp-rail-sim-calc-reports");
+    const reports = stored ? JSON.parse(stored) as Record<string, CalcReport> : {};
+    const jobIds = new Set(jobs.map((job) => job.id));
+    return Object.fromEntries(Object.entries(reports).filter(([jobId, report]) => jobIds.has(jobId) && report && Array.isArray(report.launchers)));
+  } catch {
+    return {};
   }
 }

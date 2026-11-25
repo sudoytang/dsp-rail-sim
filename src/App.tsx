@@ -12,6 +12,7 @@ import { useAppStore } from "./state/store";
 export default function App() {
   const config = useAppStore((state) => state.config);
   const calcJobs = useAppStore((state) => state.calcJobs);
+  const calcReports = useAppStore((state) => state.reports);
   const error = useAppStore((state) => state.error);
   const setError = useAppStore((state) => state.setError);
   const replaceConfig = useAppStore((state) => state.replaceConfig);
@@ -65,6 +66,14 @@ export default function App() {
       return;
     }
   }, [calcJobs]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("dsp-rail-sim-calc-reports", JSON.stringify(calcReports));
+    } catch {
+      return;
+    }
+  }, [calcReports]);
 
   const importFile = async (file: File | undefined) => {
     if (!file) return;

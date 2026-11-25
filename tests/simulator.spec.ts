@@ -41,6 +41,11 @@ test("renders WebGL and calculates multiple EM-Rail Ejectors in a worker", async
   await page.locator(".run-detail-actions").getByRole("button", { name: "Delete", exact: true }).click();
   await expect(page.getByRole("dialog", { name: "Delete calculation" })).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "CALC", exact: true })).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".calc-run.status-completed")).toBeVisible();
+  await page.locator(".calc-run-toggle").click();
+  await expect(page.locator(".activity-chart")).toBeVisible();
   expect(errors).toEqual([]);
 });
 
